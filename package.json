@@ -1,0 +1,29 @@
+{
+  "name": "voxelrenderingcomparison",
+  "version": "1.0.0",
+  "description": "Comparing different voxel rendering methods",
+  "main": "Server.mjs",
+  "scripts": {
+    "start": "node FileServer.mjs",
+    "generate-scenes": "node ./Scenes/GenerateAll.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Permille/VoxelRenderingComparison.git"
+  },
+  "keywords": [
+    "voxel"
+  ],
+  "author": "permille.io",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Permille/VoxelRenderingComparison/issues"
+  },
+  "homepage": "https://github.com/Permille/VoxelRenderingComparison#readme",
+  "dependencies": {
+    "fs": "^0.0.1-security",
+    "http": "^0.0.1-security",
+    "path": "^0.12.7",
+    "url": "^0.11.3"
+  }
+}
