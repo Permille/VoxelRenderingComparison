@@ -180,7 +180,7 @@ function TERP(t, a, b, c, d){
 }
 
 export default function Generate(){
-  const Buffer = new ArrayBuffer(1073741824);
+  const Buffer = new ArrayBuffer(536870912); // 512 MiB
   const Data = new DataView(Buffer);
 
   const I = new Float32Array(515 * 515); //Interpolation points

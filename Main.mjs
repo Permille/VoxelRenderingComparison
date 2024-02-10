@@ -2,7 +2,7 @@ import Camera from "./Controls/Camera.mjs";
 import KeyboardControls from "./Controls/KeyboardControls.mjs";
 import MouseControls from "./Controls/MouseControls.mjs";
 import GenerateWorld from "./Scenes/Scenes/Mountains/Generate.mjs";
-import Renderer from "./Voxels/Raytraced_8_Unoptimised/Renderer.mjs";
+import Renderer from "./Voxels/Raytraced_8_AABB/Renderer.mjs";
 
 window.addEventListener("load", function(){
   self.Main = new Main;

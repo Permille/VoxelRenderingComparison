@@ -45,133 +45,17 @@ fn VertexMain(@builtin(vertex_index) VertexIndex : u32) -> VertexOut{
   return VertexOut(vec4(Vertex, 0., 1.), RayDirection);
 }
 
-var<private> RayDirection : vec3<f32>;
-var<private> AbsRayInverse : vec3<f32>;
-var<private> RaySign : vec3<f32>;
-var<private> Mask : vec3<f32>;
-var<private> Hit : bool;
-
-fn Raytrace512(Location512 : u32, RayOrigin : vec3<f32>){
-  var MapPosition = floor(RayOrigin);
-  var SideDistance = (RaySign * (MapPosition - RayOrigin) + (RaySign * .5) + .5) * AbsRayInverse;
-
-  for(var i : u32 = 0u; i < 23; i++){
-    let u_Position = vec3<u32>(vec3<i32>(MapPosition));
-    if(any(vec3<bool>(u_Position & vec3<u32>(0xfffffff8)))){ //Out of bounds
-      break;
-    }
-    
-    let Location64 = Data[Location512 + ((u_Position.z << 6) | (u_Position.x << 3) | u_Position.y)] >> 2;
-
-    if(Location64 > 511){
-      let Distance = dot(SideDistance - AbsRayInverse, Mask);
-      let CurrentRayPosition = RayOrigin + RayDirection * Distance + (RaySign * Mask * 5e-7);
-
-      Raytrace64(Location64, clamp((CurrentRayPosition - MapPosition) * vec3<f32>(8.), vec3<f32>(0.), vec3<f32>(7.9999)));
-      
-      if(Hit){
-        return;
-      }
-    }
-    
-    Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
-    SideDistance = fma(Mask, AbsRayInverse, SideDistance);
-    MapPosition = fma(Mask, RaySign, MapPosition);
-  }
-}
-
-fn Raytrace64(Location64 : u32, RayOrigin : vec3<f32>){
-  var MapPosition = floor(RayOrigin);
-  var SideDistance = (RaySign * (MapPosition - RayOrigin) + (RaySign * .5) + .5) * AbsRayInverse;
-
-  for(var i : u32 = 0u; i < 23; i++){
-    let u_Position = vec3<u32>(vec3<i32>(MapPosition));
-    if(any(vec3<bool>(u_Position & vec3<u32>(0xfffffff8)))){ //Out of bounds
-      break;
-    }
-    
-    let Location8 = Data[Location64 + ((u_Position.z << 6) | (u_Position.x << 3) | u_Position.y)] >> 2;
-
-    if(Location8 > 511){
-      let Distance = dot(SideDistance - AbsRayInverse, Mask);
-      let CurrentRayPosition = RayOrigin + RayDirection * Distance + (RaySign * Mask * 5e-7);
-      
-      Raytrace8(Location8, clamp((CurrentRayPosition - MapPosition) * vec3<f32>(8.), vec3<f32>(0.), vec3<f32>(7.9999)));
-      
-      if(Hit){
-        return;
-      }
-    }
-    
-    Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
-    SideDistance = fma(Mask, AbsRayInverse, SideDistance);
-    MapPosition = fma(Mask, RaySign, MapPosition);
-  }
-}
-
-
-fn Raytrace8(Location8 : u32, RayOrigin : vec3<f32>){
-  var MapPosition = floor(RayOrigin);
-  var SideDistance = (RaySign * (MapPosition - RayOrigin) + (RaySign * .5) + .5) * AbsRayInverse;
-
-  for(var i : u32 = 0u; i < 23; i++){
-    let u_Position = vec3<u32>(vec3<i32>(MapPosition));
-    if(any(vec3<bool>(u_Position & vec3<u32>(0xfffffff8)))){ //Out of bounds
-      break;
-    }
-    
-    let IsSolid = (Data[Location8 + ((u_Position.z << 1) | (u_Position.x >> 2))] >> ((u_Position.x << 3) | u_Position.y)) & 1;
-
-    if(IsSolid == 1){
-      Hit = true;
-      return;
-    }
-    
-    Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
-    SideDistance = fma(Mask, AbsRayInverse, SideDistance);
-    MapPosition = fma(Mask, RaySign, MapPosition);
-  }
-}
 
 @fragment
 fn FragmentMain(VertexData : VertexOut) -> @location(0) vec4<f32>{
   let RayOrigin = Uniforms.Position / 512.;
   
-  RayDirection = VertexData.RayDirection;
-  AbsRayInverse = abs(1. / RayDirection);
-  RaySign = sign(RayDirection);
-  Mask = vec3<f32>(0.);
-  Hit = false;
+  let RayDirection = VertexData.RayDirection;
+  let AbsRayInverse = abs(1. / RayDirection);
+  let RaySign = sign(RayDirection);
+  var Mask = vec3<f32>(0.);
+  var Hit = false;
   
-  /*var MapPosition = floor(RayOrigin);
-  var SideDistance = (RaySign * (MapPosition - RayOrigin) + (RaySign * .5) + .5) * AbsRayInverse;
-
-  for(var i : u32 = 0u; i < 23; i++){
-    let u_Position = vec3<u32>(vec3<i32>(MapPosition));
-    if(any(vec3<bool>(u_Position & vec3<u32>(0xfffffff8)))){ //Out of bounds
-      break;
-    }
-    
-    let Location512 = Data[(u_Position.z << 6) | (u_Position.x << 3) | u_Position.y] >> 2;
-
-    if(Location512 > 511){
-      let Distance = dot(SideDistance - AbsRayInverse, Mask);
-      let CurrentRayPosition = RayOrigin + RayDirection * Distance + (RaySign * Mask * 5e-7);
-      
-      Raytrace512(Location512, clamp((CurrentRayPosition - MapPosition) * vec3<f32>(8.), vec3<f32>(0.), vec3<f32>(7.9999)));
-      
-      if(Hit){
-        break;
-      }
-    }
-    
-    Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
-    SideDistance = fma(Mask, AbsRayInverse, SideDistance);
-    MapPosition = fma(Mask, RaySign, MapPosition);
-  }
-  if(!Hit){
-    discard;
-  }*/
   var MapPositions : array<vec3<f32>, 4>;
   var SideDistances : array<vec3<f32>, 4>;
   var RayOrigins : array<vec3<f32>, 4>;
