@@ -183,7 +183,12 @@ fn FragmentMain(VertexData : VertexOut) -> @location(0) vec4<f32>{
   let PackedNormal = VertexData.Region64Coordinate >> 29;
   let UnsignedPackedNormal = PackedNormal & 3;
   let Normal = select(-1., 1., PackedNormal > 3) * vec3<f32>(vec3<bool>(UnsignedPackedNormal == 0, UnsignedPackedNormal == 1, UnsignedPackedNormal == 2));
-  return vec4<f32>(Normal * .5 + .5, 1.);
+  //return vec4<f32>(Normal * .5 + .5, 1.);
+  if(dot(vec3<f32>(1.), Normal) < 0.){
+    return vec4<f32>(vec3<f32>(length(abs(Normal) * vec3<f32>(.9, 1., .8))), 1.);
+  } else{
+    return vec4<f32>(vec3<f32>(length(abs(Normal) * vec3<f32>(.7, .6, .75))), 1.);
+  }
 }
 `;
 

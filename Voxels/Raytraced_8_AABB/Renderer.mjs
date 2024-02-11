@@ -206,7 +206,13 @@ fn FragmentMain(VertexData : VertexOut) -> @location(0) vec4<f32>{
     }
   }
 
-  return vec4<f32>(Mask * RaySign * .5 + .5, 1.);
+  //return vec4<f32>(Mask * RaySign * .5 + .5, 1.);
+  let Normal = Mask * RaySign;
+  if(dot(vec3<f32>(1.), Normal) < 0.){
+    return vec4<f32>(vec3<f32>(length(abs(Normal) * vec3<f32>(.9, 1., .8))), 1.);
+  } else{
+    return vec4<f32>(vec3<f32>(length(abs(Normal) * vec3<f32>(.7, .6, .75))), 1.);
+  }
 }
 `;
 
