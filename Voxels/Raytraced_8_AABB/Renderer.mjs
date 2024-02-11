@@ -76,8 +76,11 @@ fn VertexMain(@builtin(vertex_index) VertexIndex : u32, @builtin(instance_index)
   let Coordinate8 = Data[Location64 + 513 + LocalInstanceID];
   let Location8 = Data[Location64 + Coordinate8];
 
-  let Chunk8MinBounds = vec3<f32>(0.);
-  let Chunk8MaxBounds = vec3<f32>(8.);
+  let Temp = vec3<u32>(Data[(Location8 >> 2) + 16]) >> vec3<u32>(6, 0, 12);
+  let u_Chunk8MinBounds = extractBits(Temp, 0, 3);
+  let u_Chunk8MaxBounds = extractBits(Temp, 3, 3);
+  let Chunk8MinBounds = vec3<f32>(u_Chunk8MinBounds);
+  let Chunk8MaxBounds = vec3<f32>(u_Chunk8MaxBounds + 1);
 
   let Chunk8Size = Chunk8MaxBounds - Chunk8MinBounds;
 
@@ -98,22 +101,6 @@ fn VertexMain(@builtin(vertex_index) VertexIndex : u32, @builtin(instance_index)
   return VertexOut(Vertex, VertexCoord - Uniforms.Position, ChunkPosition, Location8, Coordinate8, ChunkIndex);
 }
 
-/*
-@vertex
-fn VertexMain(@builtin(vertex_index) VertexIndex : u32) -> VertexOut{
-  var Position = array<vec2<f32>, 3>(
-    vec2<f32>(3., -1.),
-    vec2<f32>(-1., 3.),
-    vec2<f32>(-1., -1.)
-  );
-  let Vertex = Position[VertexIndex];
-  var RayDirection = vec3<f32>(-Vertex.x * (Uniforms.Resolution.x / Uniforms.Resolution.y), Vertex.y, 1. / tan(Uniforms.FOV / 2.));
-  RayDirection *= RotateX(Uniforms.Rotation.y);
-  RayDirection *= RotateY(3.14159 - Uniforms.Rotation.x);
-  return VertexOut(vec4(Vertex, 0., 1.), RayDirection);
-}
-*/
-
 fn GetVoxel(Chunk8Location : u32, c : vec3<u32>) -> bool{
   return ((Data[Chunk8Location + ((c.z | (c.x >> 5)) & 15)] >> ((c.x | c.y) & 31)) & 1) == 1;
 }
@@ -125,11 +112,11 @@ fn FragmentMain(VertexData : VertexOut) -> @location(0) vec4<f32>{
 
   let Chunk8Location = VertexData.Chunk8Location >> 2;
 
-  let Temp = vec3<u32>(VertexData.Chunk8BoundsAndLocalCoordinate) >> vec3<u32>(9, 15, 21);
+  let Temp = vec3<u32>(Data[Chunk8Location + 16]) >> vec3<u32>(6, 0, 12);
   let u_Chunk8MinBounds = extractBits(Temp, 0, 3);
   let u_Chunk8MaxBounds = extractBits(Temp, 3, 3);
-  let Chunk8MinBounds = vec3<f32>(0.);//vec3<f32>(u_Chunk8MinBounds);
-  let Chunk8MaxBounds = vec3<f32>(8.);//vec3<f32>(u_Chunk8MaxBounds + 1);
+  let Chunk8MinBounds = vec3<f32>(u_Chunk8MinBounds);
+  let Chunk8MaxBounds = vec3<f32>(u_Chunk8MaxBounds + 1);
 
   let RayPosition = clamp(VertexData.ChunkPosition, Chunk8MinBounds + 1e-5, Chunk8MaxBounds - 1e-5);//Uniforms.Position;
   var Mask = vec3<f32>((RayPosition == Chunk8MinBounds + 1e-5) | (RayPosition == Chunk8MaxBounds - 1e-5));
@@ -214,6 +201,97 @@ fn FragmentMain(VertexData : VertexOut) -> @location(0) vec4<f32>{
     return vec4<f32>(vec3<f32>(length(abs(Normal) * vec3<f32>(.7, .6, .75))), 1.);
   }
 }
+
+
+
+
+// Slightly faster traversal but it doesn't check if it left the bounding box
+/*
+@fragment
+fn FragmentMain(VertexData : VertexOut) -> @location(0) vec4<f32>{
+
+  let Chunk8Location = VertexData.Chunk8Location >> 2;
+
+
+  let RayPosition = clamp(VertexData.ChunkPosition, vec3<f32>(0.) + 1e-5, vec3<f32>(8.) - 1e-5);//Uniforms.Position;
+  var Mask = vec3<f32>((RayPosition == vec3<f32>(0.) + 1e-5) | (RayPosition == vec3<f32>(8.) - 1e-5));
+  var RayPosOffset = vec3<f32>(2. + floor(RayPosition) * Multiplier);
+  let RayDirection = VertexData.RayDirection;
+  let RaySign = sign(RayDirection);
+
+  var UintPos = bitcast<vec3<u32>>(RayPosOffset);
+  
+  let RayInverse = 1. / RayDirection;
+  let AbsRayInverse = abs(RayInverse);
+  
+  var SideDistance = (RaySign * .5 + .5 - fract(RayPosition)) * RayInverse;
+
+  if(!GetVoxel(Chunk8Location, UintPos)){
+    let RaySignSmall = RaySign * Multiplier;
+
+    for(var i : i32 = 0; i < 4; i = i + 1){
+      Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
+      RayPosOffset = fma(Mask, RaySignSmall, RayPosOffset);
+      UintPos = bitcast<vec3<u32>>(RayPosOffset);
+      SideDistance = fma(Mask, AbsRayInverse, SideDistance);
+      if(GetVoxel(Chunk8Location, UintPos)){
+        if(any(vec3<bool>(UintPos & vec3<u32>(0x0000ffc0, 0x0000fff8, 0x0000fff0)))){discard; return vec4<f32>();}
+        break;
+      }
+      
+      Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
+      RayPosOffset = fma(Mask, RaySignSmall, RayPosOffset);
+      UintPos = bitcast<vec3<u32>>(RayPosOffset);
+      SideDistance = fma(Mask, AbsRayInverse, SideDistance);
+      if(GetVoxel(Chunk8Location, UintPos)){
+        if(any(vec3<bool>(UintPos & vec3<u32>(0x0000ffc0, 0x0000fff8, 0x0000fff0)))){discard; return vec4<f32>();}
+        break;
+      }
+      
+      Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
+      RayPosOffset = fma(Mask, RaySignSmall, RayPosOffset);
+      UintPos = bitcast<vec3<u32>>(RayPosOffset);
+      SideDistance = fma(Mask, AbsRayInverse, SideDistance);
+      if(any(vec3<bool>(UintPos & vec3<u32>(0x0000ffc0, 0x0000fff8, 0x0000fff0)))){discard; return vec4<f32>();}
+      if(GetVoxel(Chunk8Location, UintPos)){ break; }
+      
+      Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
+      RayPosOffset = fma(Mask, RaySignSmall, RayPosOffset);
+      UintPos = bitcast<vec3<u32>>(RayPosOffset);
+      SideDistance = fma(Mask, AbsRayInverse, SideDistance);
+      if(GetVoxel(Chunk8Location, UintPos)){
+        if(any(vec3<bool>(UintPos & vec3<u32>(0x0000ffc0, 0x0000fff8, 0x0000fff0)))){discard; return vec4<f32>();}
+        break;
+      }
+      
+      Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
+      RayPosOffset = fma(Mask, RaySignSmall, RayPosOffset);
+      UintPos = bitcast<vec3<u32>>(RayPosOffset);
+      SideDistance = fma(Mask, AbsRayInverse, SideDistance);
+      if(GetVoxel(Chunk8Location, UintPos)){
+        if(any(vec3<bool>(UintPos & vec3<u32>(0x0000ffc0, 0x0000fff8, 0x0000fff0)))){discard; return vec4<f32>();}
+        break;
+      }
+      
+      Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
+      RayPosOffset = fma(Mask, RaySignSmall, RayPosOffset);
+      UintPos = bitcast<vec3<u32>>(RayPosOffset);
+      SideDistance = fma(Mask, AbsRayInverse, SideDistance);
+      if(any(vec3<bool>(UintPos & vec3<u32>(0x0000ffc0, 0x0000fff8, 0x0000fff0)))){discard; return vec4<f32>();}
+      if(GetVoxel(Chunk8Location, UintPos)){ break; }
+    }
+  }
+
+  //return vec4<f32>(Mask * RaySign * .5 + .5, 1.);
+  let Normal = Mask * RaySign;
+  if(dot(vec3<f32>(1.), Normal) < 0.){
+    return vec4<f32>(vec3<f32>(length(abs(Normal) * vec3<f32>(.9, 1., .8))), 1.);
+  } else{
+    return vec4<f32>(vec3<f32>(length(abs(Normal) * vec3<f32>(.7, .6, .75))), 1.);
+  }
+}
+*/
+
 `;
 
 export default class Renderer{
