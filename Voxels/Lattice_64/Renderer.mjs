@@ -4,12 +4,10 @@ import InitialiseDevice from "../.Common/InitialiseDevice.mjs";
 const Shader = `
 struct VertexOut{
   @builtin(position) Position : vec4<f32>,
-  @location(0) RayDirection : vec3<f32>,
-  @location(1) ChunkPosition : vec3<f32>,
-  @location(2) @interpolate(flat) Chunk8Location : u32,
-  @location(3) @interpolate(flat) Chunk8BoundsAndLocalCoordinate : u32,
-  @location(4) @interpolate(flat) Region64Coordinate : u32
+  @location(0) Region64Position : vec3<f32>,
+  @location(1) @interpolate(flat) Region64Coordinate : u32
 }
+
 struct UniformsStruct{
   ModelViewProjection : mat4x4<f32>,
   Resolution : vec2<f32>,
@@ -69,144 +67,123 @@ fn VertexMain(@builtin(vertex_index) VertexIndex : u32, @builtin(instance_index)
   let Coordinate64 = ChunkIndex & 511;
   let Location64 = Data[Location512 + Coordinate64] >> 2;
 
-  let NotEmptyChunk8sCount = Data[Location64 + 512];
+  let ZCount = Data[Location64 + 512];
+  let XCount = Data[Location64 + 513];
 
   let LocalInstanceID = InstanceIndex - InstancesStart;
-  
-  let Coordinate8 = Data[Location64 + 513 + LocalInstanceID];
-  let Location8 = Data[Location64 + Coordinate8];
 
-  let Chunk8MinBounds = vec3<f32>(0.);
-  let Chunk8MaxBounds = vec3<f32>(8.);
-
-  let Chunk8Size = Chunk8MaxBounds - Chunk8MinBounds;
-
-  let Coordinate = vec3<f32>(
+  let Offset = vec3<f32>(
     (extractBits(vec3<u32>(Coordinate512) >> vec3<u32>(3, 0, 6), 0, 3) << vec3<u32>(9)) |
-    (extractBits(vec3<u32>(Coordinate64) >> vec3<u32>(3, 0, 6), 0, 3) << vec3<u32>(6)) |
-    (extractBits(vec3<u32>(Coordinate8) >> vec3<u32>(3, 0, 6), 0, 3) << vec3<u32>(3))
+    (extractBits(vec3<u32>(Coordinate64) >> vec3<u32>(3, 0, 6), 0, 3) << vec3<u32>(6))
   );
 
+  var VertexCoord : vec3<f32>;
+  var Normal : u32 = 0;
 
-  let Sign = u32(dot(vec3<f32>(1.), step(Uniforms.Position, Chunk8MinBounds + Coordinate) * vec3<f32>(4, 2, 1)));
-  let ChunkPosition = Chunk8MinBounds + Chunk8Size * vec3<f32>(vec3<u32>(Vertices[Sign] >> (VertexIndex * 3)) & vec3<u32>(4u, 2u, 1u)) * vec3<f32>(.25, .5, 1.);
-  let VertexCoord = Coordinate + ChunkPosition;
+  var SmallOffset = vec3<f32>(0.);
+  if(LocalInstanceID < ZCount){
+    // Z side
+    
+    let SliceInstanceID = LocalInstanceID;
 
-  var Vertex = Uniforms.ModelViewProjection * vec4<f32>(VertexCoord, 1.);
+    
+    let PackedBounds = Data[(Data[Location64 + 515] >> 2) + SliceInstanceID];
+    let Z = f32(PackedBounds & 63) + .5;
+    let MinX = f32((PackedBounds >> 6) & 63);
+    let MaxX = f32(((PackedBounds >> 12) & 63) + 1);
+    let MinY = f32((PackedBounds >> 18) & 63);
+    let MaxY = f32(((PackedBounds >> 24) & 63) + 1);
+
+    let Sign = sign(Uniforms.Position.z - Offset.z - Z);
+    
+    Normal = 2u | select(0u, 4u, Sign < 0.);
+
+    SmallOffset = vec3<f32>(0., 0., .5 * Sign);
+
+    VertexCoord = vec3<f32>(select(MinX, MaxX, (VertexIndex & 1) == 1), select(MinY, MaxY, (VertexIndex >> 1) == 1), Z);
+  } else if(LocalInstanceID < ZCount + XCount){
+    // X side
+
+    let SliceInstanceID = LocalInstanceID - ZCount;
 
 
-  return VertexOut(Vertex, VertexCoord - Uniforms.Position, ChunkPosition, Location8, Coordinate8, ChunkIndex);
+    let PackedBounds = Data[(Data[Location64 + 516] >> 2) + SliceInstanceID];
+    let X = f32(PackedBounds & 63) + .5;
+    let MinY = f32((PackedBounds >> 6) & 63);
+    let MaxY = f32(((PackedBounds >> 12) & 63) + 1);
+    let MinZ = f32((PackedBounds >> 18) & 63);
+    let MaxZ = f32(((PackedBounds >> 24) & 63) + 1);
+
+    let Sign = sign(Uniforms.Position.x - Offset.x - X);
+    
+    Normal = 0u | select(0u, 4u, Sign < 0.);
+
+    SmallOffset = vec3<f32>(.5 * Sign, 0., 0.);
+
+    VertexCoord = vec3<f32>(X, select(MinY, MaxY, (VertexIndex & 1) == 1), select(MinZ, MaxZ, (VertexIndex >> 1) == 1));
+  } else{
+    // Y side
+
+    let SliceInstanceID = LocalInstanceID - ZCount - XCount;
+
+    
+    let PackedBounds = Data[(Data[Location64 + 517] >> 2) + SliceInstanceID];
+    let Y = f32(PackedBounds & 63) + .5;
+    let MinZ = f32((PackedBounds >> 6) & 63);
+    let MaxZ = f32(((PackedBounds >> 12) & 63) + 1);
+    let MinX = f32((PackedBounds >> 18) & 63);
+    let MaxX = f32(((PackedBounds >> 24) & 63) + 1);
+
+    let Sign = sign(Uniforms.Position.y - Offset.y - Y);
+    
+    Normal = 1u | select(0u, 4u, Sign < 0.);
+
+    SmallOffset = vec3<f32>(0., .5 * Sign, 0.);
+
+    VertexCoord = vec3<f32>(select(MinX, MaxX, (VertexIndex & 1) == 1), Y, select(MinZ, MaxZ, (VertexIndex >> 1) == 1));
+  }
+
+
+  var Vertex = Uniforms.ModelViewProjection * vec4<f32>(VertexCoord + Offset + SmallOffset, 1.);
+
+
+  return VertexOut(Vertex, VertexCoord, (Normal << 29) | ChunkIndex);
 }
-
-/*
-@vertex
-fn VertexMain(@builtin(vertex_index) VertexIndex : u32) -> VertexOut{
-  var Position = array<vec2<f32>, 3>(
-    vec2<f32>(3., -1.),
-    vec2<f32>(-1., 3.),
-    vec2<f32>(-1., -1.)
-  );
-  let Vertex = Position[VertexIndex];
-  var RayDirection = vec3<f32>(-Vertex.x * (Uniforms.Resolution.x / Uniforms.Resolution.y), Vertex.y, 1. / tan(Uniforms.FOV / 2.));
-  RayDirection *= RotateX(Uniforms.Rotation.y);
-  RayDirection *= RotateY(3.14159 - Uniforms.Rotation.x);
-  return VertexOut(vec4(Vertex, 0., 1.), RayDirection);
-}
-*/
-
-fn GetVoxel(Chunk8Location : u32, c : vec3<u32>) -> bool{
-  return ((Data[Chunk8Location + ((c.z | (c.x >> 5)) & 15)] >> ((c.x | c.y) & 31)) & 1) == 1;
-}
-
-const Multiplier = vec3<f32>(1.1920929e-7 * 16., 1.1920929e-7 * 2., 1.1920929e-7 * 4.);
 
 @fragment
 fn FragmentMain(VertexData : VertexOut) -> @location(0) vec4<f32>{
+  let ChunkIndex = VertexData.Region64Coordinate & 536870911;
 
-  let Chunk8Location = VertexData.Chunk8Location >> 2;
+  let Coordinate512 = ChunkIndex >> 9;
+  let Location512 = Data[Coordinate512] >> 2;
+  let Coordinate64 = ChunkIndex & 511;
+  let Location64 = Data[Location512 + Coordinate64] >> 2;
 
-  let Temp = vec3<u32>(VertexData.Chunk8BoundsAndLocalCoordinate) >> vec3<u32>(9, 15, 21);
-  let u_Chunk8MinBounds = extractBits(Temp, 0, 3);
-  let u_Chunk8MaxBounds = extractBits(Temp, 3, 3);
-  let Chunk8MinBounds = vec3<f32>(0.);//vec3<f32>(u_Chunk8MinBounds);
-  let Chunk8MaxBounds = vec3<f32>(8.);//vec3<f32>(u_Chunk8MaxBounds + 1);
+  let Region64Position = vec3<u32>(floor(clamp(VertexData.Region64Position, vec3<f32>(0.), vec3<f32>(63.999))));
 
-  let RayPosition = clamp(VertexData.ChunkPosition, Chunk8MinBounds + 1e-5, Chunk8MaxBounds - 1e-5);//Uniforms.Position;
-  var Mask = vec3<f32>((RayPosition == Chunk8MinBounds + 1e-5) | (RayPosition == Chunk8MaxBounds - 1e-5));
-  var RayPosOffset = vec3<f32>(2. + floor(RayPosition) * Multiplier);
-  let RayDirection = VertexData.RayDirection;
-  let RaySign = sign(RayDirection);
+  let Temp8 = extractBits(Region64Position, 3, 3) << vec3<u32>(3, 0, 6);
+  let Coordinate8 = Temp8.x | Temp8.y | Temp8.z;
+  let Location8 = Data[Location64 + Coordinate8] >> 2;
 
-  var UintPos = bitcast<vec3<u32>>(RayPosOffset);
-  
-  let RayInverse = 1. / RayDirection;
-  let AbsRayInverse = abs(RayInverse);
-  
-  var SideDistance = (RaySign * .5 + .5 - fract(RayPosition)) * RayInverse;
-
-  if(!GetVoxel(Chunk8Location, UintPos)){
-    let RaySignSmall = RaySign * Multiplier;
-    
-
-    //The chunk's bounds, but in floating point format
-    let TestChunk8MinBounds = fma(Chunk8MinBounds, Multiplier, vec3<f32>(2.));
-    let TestChunk8MaxBounds = fma(Chunk8MaxBounds - 1., Multiplier, vec3<f32>(2.));
-
-
-    for(var i : i32 = 0; i < 4; i = i + 1){
-      Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
-      RayPosOffset = fma(Mask, RaySignSmall, RayPosOffset);
-      UintPos = bitcast<vec3<u32>>(RayPosOffset);
-      SideDistance = fma(Mask, AbsRayInverse, SideDistance);
-      if(GetVoxel(Chunk8Location, UintPos)){
-        if(any((RayPosOffset < TestChunk8MinBounds) | (RayPosOffset > TestChunk8MaxBounds))){discard; return vec4<f32>();}
-        break;
-      }
-      
-      Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
-      RayPosOffset = fma(Mask, RaySignSmall, RayPosOffset);
-      UintPos = bitcast<vec3<u32>>(RayPosOffset);
-      SideDistance = fma(Mask, AbsRayInverse, SideDistance);
-      if(GetVoxel(Chunk8Location, UintPos)){
-        if(any((RayPosOffset < TestChunk8MinBounds) | (RayPosOffset > TestChunk8MaxBounds))){discard; return vec4<f32>();}
-        break;
-      }
-      
-      Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
-      RayPosOffset = fma(Mask, RaySignSmall, RayPosOffset);
-      UintPos = bitcast<vec3<u32>>(RayPosOffset);
-      SideDistance = fma(Mask, AbsRayInverse, SideDistance);
-      if(any((RayPosOffset < TestChunk8MinBounds) | (RayPosOffset > TestChunk8MaxBounds))){discard; return vec4<f32>();}
-      if(GetVoxel(Chunk8Location, UintPos)){ break; }
-      
-      Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
-      RayPosOffset = fma(Mask, RaySignSmall, RayPosOffset);
-      UintPos = bitcast<vec3<u32>>(RayPosOffset);
-      SideDistance = fma(Mask, AbsRayInverse, SideDistance);
-      if(GetVoxel(Chunk8Location, UintPos)){
-        if(any((RayPosOffset < TestChunk8MinBounds) | (RayPosOffset > TestChunk8MaxBounds))){discard; return vec4<f32>();}
-        break;
-      }
-      
-      Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
-      RayPosOffset = fma(Mask, RaySignSmall, RayPosOffset);
-      UintPos = bitcast<vec3<u32>>(RayPosOffset);
-      SideDistance = fma(Mask, AbsRayInverse, SideDistance);
-      if(GetVoxel(Chunk8Location, UintPos)){
-        if(any((RayPosOffset < TestChunk8MinBounds) | (RayPosOffset > TestChunk8MaxBounds))){discard; return vec4<f32>();}
-        break;
-      }
-      
-      Mask = step(SideDistance, min(SideDistance.yxy, SideDistance.zzx));
-      RayPosOffset = fma(Mask, RaySignSmall, RayPosOffset);
-      UintPos = bitcast<vec3<u32>>(RayPosOffset);
-      SideDistance = fma(Mask, AbsRayInverse, SideDistance);
-      if(any((RayPosOffset < TestChunk8MinBounds) | (RayPosOffset > TestChunk8MaxBounds))){discard; return vec4<f32>();}
-      if(GetVoxel(Chunk8Location, UintPos)){ break; }
-    }
+  if(Location8 < 512){
+    discard;
+    return vec4<f32>();
   }
 
-  return vec4<f32>(Mask * RaySign * .5 + .5, 1.);
+  let Temp1 = extractBits(Region64Position, 0, 3) << vec3<u32>(3, 0, 6);
+  let Coordinate1 = Temp1.x | Temp1.y | Temp1.z;
+  
+  let IsSolid = ((Data[Location8 + (Coordinate1 >> 5)] >> (Coordinate1 & 31)) & 1) == 1;
+
+  if(!IsSolid){
+    discard;
+    return vec4<f32>();
+  }
+
+  let PackedNormal = VertexData.Region64Coordinate >> 29;
+  let UnsignedPackedNormal = PackedNormal & 3;
+  let Normal = select(-1., 1., PackedNormal > 3) * vec3<f32>(vec3<bool>(UnsignedPackedNormal == 0, UnsignedPackedNormal == 1, UnsignedPackedNormal == 2));
+  return vec4<f32>(Normal * .5 + .5, 1.);
 }
 `;
 
@@ -239,13 +216,13 @@ export default class Renderer{
       "usage": GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
     });
 
-    const Indices = new Uint16Array([0,1,2,3,4,3,5,1,6]);
+    const Indices = new Uint16Array([0,1,2,3]);
     this.IndexBuffer = this.Device.createBuffer({
       "size": (Indices.byteLength + 3) & ~3,
       "usage": GPUBufferUsage.INDEX,
       "mappedAtCreation": true
     });
-    new Uint16Array(this.IndexBuffer.getMappedRange(0, 20)).set(Indices);
+    new Uint16Array(this.IndexBuffer.getMappedRange(0, 8)).set(Indices);
     this.IndexBuffer.unmap();
 
     this.ShaderModule = this.Device.createShaderModule({"code": Shader});
@@ -296,7 +273,7 @@ export default class Renderer{
       "primitive": {
         "topology": "triangle-strip",
         "stripIndexFormat": "uint16",
-        "cullMode": "back"
+        "cullMode": "none"
       },
       "depthStencil": {
         "depthWriteEnabled": true,
@@ -419,7 +396,7 @@ export default class Renderer{
     PassEncoder.setPipeline(this.Pipeline);
     PassEncoder.setBindGroup(0, this.BindGroup);
     PassEncoder.setIndexBuffer(this.IndexBuffer, "uint16");
-    PassEncoder.drawIndexed(9, TotalInstances, 0, 0, 0);
+    PassEncoder.drawIndexed(4, TotalInstances, 0, 0, 0);
     PassEncoder.end();
 
     this.Device.queue.submit([CommandEncoder.finish()]);
@@ -510,12 +487,16 @@ export default class Renderer{
       const Coordinate64 = ChunkIndex & 511;
       const Location64 = Data.getUint32(Location512 + Coordinate64 * 4, true);
 
-      const NotEmptyChunk8sCount = Data.getUint32(Location64 + 512 * 4, true);
+      const ZSlicesCount = Data.getUint32(Location64 + 512 * 4, true);
+      const XSlicesCount = Data.getUint32(Location64 + 513 * 4, true);
+      const YSlicesCount = Data.getUint32(Location64 + 514 * 4, true);
+
+      const TotalSlicesCount = ZSlicesCount + XSlicesCount + YSlicesCount;
       
       RenderListArray[i << 1 | 0] = ChunkIndex;
       RenderListArray[i << 1 | 1] = TotalInstances;
 
-      TotalInstances += NotEmptyChunk8sCount;
+      TotalInstances += TotalSlicesCount;
     }
     
     for(let i = RenderRegionsLength * 2; i < this.PreviousRenderListLength * 2; ++i) RenderListArray[i] = 0xffffffff;
