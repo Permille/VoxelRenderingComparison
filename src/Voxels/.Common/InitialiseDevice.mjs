@@ -20,7 +20,8 @@ export default async function InitialiseDevice(RequiredLimits){
     let Device;
     try{
       Device = await Adapter.requestDevice({
-        "requiredLimits": RequiredLimits
+        "requiredLimits": RequiredLimits,
+        "requiredFeatures": Adapter.features.has("timestamp-query") ? ["timestamp-query"] : []
       });
     } catch(e){
       console.error(`Failed to get WebGPU device on attempt ${i}.`, e);
@@ -28,6 +29,7 @@ export default async function InitialiseDevice(RequiredLimits){
       Error = e;
       continue;
     }
+    console.log(Device);
     return Device;
   }
   switch(Fail){

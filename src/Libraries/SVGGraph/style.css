@@ -1,0 +1,98 @@
+.CLASS-WrapperElement{
+    color: #ffffffff;
+    margin: 0;
+    padding: 0;
+    position: relative;
+}
+
+.CLASS-WrapperElement p,
+.CLASS-WrapperElement ins,
+.CLASS-WrapperElement h1{
+    font-weight: normal;
+    margin-block: 0;
+}
+.CLASS-SettingsMenu > * + *{
+    margin-top: 4px;
+}
+.CLASS-SettingsAndGraphWrapper .CLASS-CurrentValueWrapper{
+    margin-bottom: 8px;
+}
+
+.CLASS-WrapperElement ins{
+    text-decoration: none;
+    transition: color 1s ease-out;
+}
+/*.CLASS-WrapperElement ins:hover{
+    color: #ff6f00;
+    transition: none;
+}*/
+
+.CLASS-WrapperElement ins[data-unit]::after{
+    content: attr(data-unit);
+}
+
+
+.CLASS-WrapperElement h1{
+    font-size: 24px;
+    line-height: 32px;
+}
+
+
+
+
+.CLASS-SettingsImage{
+    width: 32px;
+    height: 32px;
+    line-height: 32px;
+    font-size: 24px;
+    margin: 0;
+    background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9Ii0xMDAgLTEwMCAyMDAgMjAwIiBzdHlsZT0id2lkdGg6IDIwMHB4OyBoZWlnaHQ6IDIwMHB4OyI+DQogICAgPGRlZnM+DQogICAgICAgIDxwYXRoIGlkPSJHZWFyVGhpbmciIGZpbGw9InRyYW5zcGFyZW50IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjE1IiBkPSJNIC0xNSA1NSBMIC0xNSA4MCBMIDE1IDgwIEwgMTUgNTUgTCA0MiA0MCIgLz4NCiAgICA8L2RlZnM+DQogICAgPHVzZSBocmVmPSIjR2VhclRoaW5nIiB0cmFuc2Zvcm09InJvdGF0ZSgzMCkiIC8+DQogICAgPHVzZSBocmVmPSIjR2VhclRoaW5nIiB0cmFuc2Zvcm09InJvdGF0ZSg5MCkiIC8+DQogICAgPHVzZSBocmVmPSIjR2VhclRoaW5nIiB0cmFuc2Zvcm09InJvdGF0ZSgxNTApIiAvPg0KICAgIDx1c2UgaHJlZj0iI0dlYXJUaGluZyIgdHJhbnNmb3JtPSJyb3RhdGUoMjEwKSIgLz4NCiAgICA8dXNlIGhyZWY9IiNHZWFyVGhpbmciIHRyYW5zZm9ybT0icm90YXRlKDI3MCkiIC8+DQogICAgPHVzZSBocmVmPSIjR2VhclRoaW5nIiB0cmFuc2Zvcm09InJvdGF0ZSgzMzApIiAvPg0KICAgIDxjaXJjbGUgcj0iMjAiIGZpbGw9InRyYW5zcGFyZW50IiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMTUiLz4NCjwvc3ZnPg==');
+    background-size: contain;
+    position: absolute;
+    right: 0;
+    top: 0;
+}
+.CLASS-SettingsAndGraphWrapper{
+    position: relative;
+}
+.CLASS-SettingsAndGraphWrapper > svg{
+    overflow: visible;
+}
+
+
+
+.CLASS-WrapperElement svg{
+    width: 450px;
+    height: 220px;
+}
+
+
+
+
+.CLASS-SettingsMenu{
+    opacity: 0;
+    background-color: #0000007f;
+    height: 100%;
+    width: 100%;
+    transition: opacity .5s;
+    pointer-events: none;
+    position: absolute;
+    top: 0;
+    padding: 8px;
+    box-sizing: border-box;
+    font-size: 24px;
+    max-height: 100%;
+    overflow: auto;
+}
+.CLASS-SettingsImage:hover + div > .CLASS-SettingsMenu,
+.CLASS-SettingsMenu:hover{
+    pointer-events: auto;
+    opacity: 1;
+}
+
+
+
+.CLASS-SettingsHeader, .CLASS-SettingsExplainer{
+    text-align: center;
+    font-size: 16px;
+}

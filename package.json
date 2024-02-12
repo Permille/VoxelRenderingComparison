@@ -4,8 +4,9 @@
   "description": "Comparing different voxel rendering methods",
   "main": "Server.mjs",
   "scripts": {
-    "start": "node FileServer.mjs",
-    "generate-scenes": "node ./Scenes/GenerateAll.mjs"
+    "build-production": "npx webpack --config webpack.production.js",
+    "build-dev": "npx webpack --config webpack.development.js",
+    "dev": ".\\node_modules\\.bin\\electron Electron.mjs --flag-switches-begin --enable-webgpu-developer-features --flag-switches-end"
   },
   "repository": {
     "type": "git",
@@ -21,9 +22,13 @@
   },
   "homepage": "https://github.com/Permille/VoxelRenderingComparison#readme",
   "dependencies": {
+    "electron": "^29.0.0-beta.8",
+    "file-loader": "^6.2.0",
     "fs": "^0.0.1-security",
     "http": "^0.0.1-security",
     "path": "^0.12.7",
-    "url": "^0.11.3"
+    "url": "^0.11.3",
+    "webpack": "^5.90.1",
+    "webpack-cli": "^5.1.4"
   }
 }

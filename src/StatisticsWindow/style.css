@@ -1,0 +1,13 @@
+.CLASS-Wrapper{
+  overflow: auto;
+  display: block;
+  color: white;
+}
+.CLASS-Graphs{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, 450px);
+  align-content: space-around;
+  justify-content: space-evenly;
+  gap: 10px;
+  margin-top: 10px;
+}

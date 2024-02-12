@@ -1,0 +1,81 @@
+.CLASS-Wrapper{
+  display: flex;
+  padding: 5px;
+  align-items: center;
+}
+.CLASS-Wrapper:hover{
+  background-color: #0000003f;
+}
+
+.CLASS-Wrapper.CLASS-Disabled{
+  filter: opacity(.5);
+  background-color: #7f7f7f5f;
+}
+.CLASS-Wrapper.CLASS-Disabled:hover{
+  filter: opacity(.5);
+  background-color: #4f4f4f5f;
+}
+.CLASS-Wrapper.CLASS-Disabled *{
+  pointer-events: none;
+}
+
+.CLASS-SwitchWrapper{
+  width: 210px;
+}
+
+.CLASS-Name{
+  flex-grow: 0;
+  width: fit-content;
+  margin-bottom: 0;
+  margin-right: auto;
+  font-size: 24px;
+}
+
+.CLASS-Wrapper .CLASS-SwitchInput {
+  position: relative;
+  display: inline-block;
+  width: 70px;
+  height: 38px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.CLASS-Wrapper .CLASS-SwitchInput input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.CLASS-Wrapper .CLASS-SwitchSlider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cfcfcf9f;
+  transition: .1s;
+}
+
+.CLASS-Wrapper .CLASS-SwitchSlider:before {
+  position: absolute;
+  content: "";
+  height: 28px;
+  width: 28px;
+  left: 5px;
+  bottom: 5px;
+  background-color: #ffffffff;
+  transition: .1s;
+}
+
+.CLASS-Wrapper input:checked + .CLASS-SwitchSlider {
+  background-color: var(--less-transparent);
+}
+
+.CLASS-Wrapper input:focus + .CLASS-SwitchSlider {
+  box-shadow: 0 0 1px var(--less-transparent);
+}
+
+.CLASS-Wrapper input:checked + .CLASS-SwitchSlider:before {
+  transform: translateX(32px);
+}

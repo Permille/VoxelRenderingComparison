@@ -1,0 +1,41 @@
+.CLASS-Wrapper{
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    padding: 8px;
+    box-sizing: border-box;
+    outline: 1px solid black;
+    outline-offset: -8px;
+}
+.CLASS-Content{
+    backdrop-filter: blur(3px);
+}
+.CLASS-TitleBar{
+    background-color: #007fcf7f;
+    border-bottom: 1px solid black;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    user-select: none;
+}
+.CLASS-TitleText{
+    color: #ffffff;
+    margin-inline: 8px auto;
+    font-size: 16px;
+    padding: 2px;
+    pointer-events: none;
+}
+.CLASS-TitleBar > img{
+    height: 32px;
+    display: inline-block;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+.CLASS-TitleBar > img:hover{
+    backdrop-filter: brightness(.8);
+}
+.CLASS-Body{
+    background-color: #0000007f;
+    overflow: auto;
+    position: relative;
+}
